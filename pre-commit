@@ -1,0 +1,57 @@
+#!/usr/bin/env python3.7.4
+
+# import os
+import sys
+import subprocess
+
+"""
+%%%%% pre commit git hook %%%%%
+
+This script is executed before the git commit command.
+Grap the entire contents of the files in the staged area if there is a temporary comment (in a specific format),
+So the git commit command is aborted and prints the lines that need to be removed for the command to execute.
+
+The script should be located in <repo>/.git/hooks/pre-commit for one repository OR for each repository you can be put it in any path and run the followinfg command:
+git config --global core.hooksPath <path_to_script's_folder>
+e.g.
+git config --global core.hooksPath ~/bin/githooks/
+
+NOTE script must be called pre-commit
+
+"""
+
+
+COMMENT_FORMAT = "\"///FIXME rfisherx\|rivkafis remove\""  # old or new user
+#COMMENT_FORMAT = "\"///FIXME rfisherx remove\""  # TODO replace rfisher with $user
+
+RED = '\033[1;31;48m'
+GREEN = '\033[1;32;48m'
+YELLOW = '\033[1;33;48m'
+END = '\033[1;37;0m'
+
+staged_files_list = subprocess.getoutput(['git diff --name-only --cached']).splitlines()  # get files that are in stage area
+files_with_temporal_comment = []
+#command = f"grep -ni {COMMENT_FORMAT}  */*"
+grep_command = f"grep -ni {COMMENT_FORMAT}"
+
+can_commit = True
+
+for file in staged_files_list:
+    try:
+        if file.find("pre-commit") != -1:  # skip the checker for this script file
+            continue
+        command = f'{grep_command} {file}'
+        output = subprocess.check_output(command, shell=True, universal_newlines=True)
+        files_with_temporal_comment.append(f"{file} line {output}")
+        can_commit = False
+
+    except subprocess.CalledProcessError as e:  # grep command returns non-zero code when there are no results
+        pass
+
+if can_commit:
+    print(f"{YELLOW}(★‿★) {GREEN}pre commit script passed successfully {END}")
+    # print("\U0001f600")#FIXME 
+    sys.exit(0)
+else:
+    print(f"{YELLOW}(>▂<) {RED}Aborting commit due to temporal code that must be removed in order for the command to be executed:{END} \n", '\n'.join(files_with_temporal_comment))
+    sys.exit(1)
